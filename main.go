@@ -9,6 +9,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+type Bot interface {
+	Send(tgbotapi.Chattable) (tgbotapi.Message, error)
+}
+
 func main() {
 	token := os.Getenv("TOKEN")
 	if token == "" {
@@ -55,7 +59,7 @@ func main() {
 	}
 }
 
-func handleMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message) {
+func handleMessage(bot Bot, msg *tgbotapi.Message) {
 	chatID := msg.Chat.ID
 
 	if msg.IsCommand() {
@@ -70,7 +74,7 @@ func handleMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message) {
 	}
 }
 
-func handleCommand(bot *tgbotapi.BotAPI, msg *tgbotapi.Message) {
+func handleCommand(bot Bot, msg *tgbotapi.Message) {
 	chatID := msg.Chat.ID
 
 	switch msg.Command() {
