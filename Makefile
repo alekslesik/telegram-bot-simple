@@ -6,7 +6,7 @@ ENV_FILE := .env
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all run build deps fmt imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs preprod vuln
+.PHONY: help all run build deps fmt imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs docker-compose-up docker-compose-down preprod vuln
 
 ## Show available make targets
 help:
@@ -27,6 +27,8 @@ help:
 	@echo "  docker-run    - Run bot in Docker with .env"
 	@echo "  docker-stop   - Stop running Docker container"
 	@echo "  docker-logs   - Show Docker logs"
+	@echo "  docker-compose-up   - Run bot via docker-compose (uses .env)"
+	@echo "  docker-compose-down - Stop bot started by docker-compose"
 	@echo "  preprod       - Full pre-production checks (deps, fmt, imports, linters, tests, vuln, docker build)"
 
 ## Default: run all pre-production checks
@@ -116,6 +118,14 @@ docker-stop:
 ## Show Docker logs
 docker-logs:
 	docker logs -f $(APP_NAME)
+
+## Run bot via docker-compose (build + up)
+docker-compose-up:
+	docker compose up --build
+
+## Stop bot started via docker-compose
+docker-compose-down:
+	docker compose down
 
 ## Full pre-production check: deps, fmt, imports, vet, staticcheck, golangci-lint, tests, vuln, docker build
 preprod: deps fmt imports vet staticcheck golangci-lint test vuln docker-build
