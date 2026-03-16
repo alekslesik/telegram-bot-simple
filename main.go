@@ -104,4 +104,3 @@ func handleCommand(bot *tgbotapi.BotAPI, msg *tgbotapi.Message) {
 		}
 	}
 }
-
