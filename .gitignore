@@ -1,0 +1,25 @@
+# Бинарники Go
+/bot
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build артефакты
+/dist
+/build
+
+# IDE / редакторы
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Модули
+vendor/
+
+# Секреты и локальные настройки
+.env
+*.env.local
+
