@@ -2,15 +2,51 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Bot interface {
 	Send(tgbotapi.Chattable) (tgbotapi.Message, error)
+}
+
+var logger = newLogger()
+
+func newLogger() *slog.Logger {
+	// Уровень логирования: LOG_LEVEL=debug включает debug, всё остальное — info.
+	level := slog.LevelInfo
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("LOG_LEVEL")), "debug") {
+		level = slog.LevelDebug
+	}
+
+	// Формат времени: 16.06.2026 15:31:30
+	timeReplacer := func(_ []string, a slog.Attr) slog.Attr {
+		if a.Key == slog.TimeKey {
+			if t, ok := a.Value.Any().(time.Time); ok {
+				a.Value = slog.StringValue(t.Format("02.01.2006 15:04:05"))
+			}
+		}
+		return a
+	}
+
+	opts := &slog.HandlerOptions{
+		Level:       level,
+		ReplaceAttr: timeReplacer,
+	}
+
+	// Формат логов: LOG_FORMAT=json → JSON, иначе человекочитаемый текст.
+	format := strings.ToLower(strings.TrimSpace(os.Getenv("LOG_FORMAT")))
+	if format == "json" {
+		return slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	}
+
+	return slog.New(slog.NewTextHandler(os.Stdout, opts))
 }
 
 func main() {
@@ -27,9 +63,14 @@ func main() {
 	}
 
 	if username != "" {
-		log.Printf("Authorized on account @%s (expected username: @%s)", bot.Self.UserName, username)
+		logger.Info("authorized",
+			"username", bot.Self.UserName,
+			"expected_username", username,
+		)
 	} else {
-		log.Printf("Authorized on account @%s", bot.Self.UserName)
+		logger.Info("authorized",
+			"username", bot.Self.UserName,
+		)
 	}
 
 	u := tgbotapi.NewUpdate(0)
@@ -41,7 +82,7 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	log.Println("Bot started with long polling. Press Ctrl+C to stop.")
+	logger.Info("bot started with long polling, press Ctrl+C to stop")
 
 	for {
 		select {
@@ -53,7 +94,7 @@ func main() {
 			handleMessage(bot, update.Message)
 
 		case sig := <-stop:
-			log.Printf("Received signal %s, shutting down...", sig)
+			logger.Info("received signal, shutting down", "signal", sig.String())
 			return
 		}
 	}
@@ -70,7 +111,7 @@ func handleMessage(bot Bot, msg *tgbotapi.Message) {
 	// Simple echo for non-command messages
 	reply := tgbotapi.NewMessage(chatID, "Ты написал: "+msg.Text)
 	if _, err := bot.Send(reply); err != nil {
-		log.Printf("failed to send message: %v", err)
+		logger.Error("failed to send message", "err", err)
 	}
 }
 
@@ -87,7 +128,7 @@ func handleCommand(bot Bot, msg *tgbotapi.Message) {
 		reply := tgbotapi.NewMessage(chatID, text)
 		reply.ParseMode = tgbotapi.ModeMarkdown
 		if _, err := bot.Send(reply); err != nil {
-			log.Printf("failed to send /start reply: %v", err)
+			logger.Error("failed to send /start reply", "err", err)
 		}
 
 	case "help":
@@ -98,13 +139,13 @@ func handleCommand(bot Bot, msg *tgbotapi.Message) {
 		reply := tgbotapi.NewMessage(chatID, text)
 		reply.ParseMode = tgbotapi.ModeMarkdown
 		if _, err := bot.Send(reply); err != nil {
-			log.Printf("failed to send /help reply: %v", err)
+			logger.Error("failed to send /help reply", "err", err)
 		}
 
 	default:
 		reply := tgbotapi.NewMessage(chatID, "Неизвестная команда. Напиши /help, чтобы узнать, что я умею.")
 		if _, err := bot.Send(reply); err != nil {
-			log.Printf("failed to send unknown command reply: %v", err)
+			logger.Error("failed to send unknown command reply", "err", err)
 		}
 	}
 }
