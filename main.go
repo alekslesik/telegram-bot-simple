@@ -120,26 +120,103 @@ func handleCommand(bot Bot, msg *tgbotapi.Message) {
 
 	switch msg.Command() {
 	case "start":
-		text := "Привет! Я простой бот на Go.\n\n" +
-			"Доступные команды:\n" +
-			"/start - приветствие\n" +
-			"/help - подсказка\n" +
-			"Напиши любое сообщение — я его повторю."
+		text := "Привет! Я демонстрационный Telegram‑бот для бизнеса.\n\n" +
+			"Я показываю, как может выглядеть живой продукт для заказчика:\n" +
+			"- приветствие новых клиентов\n" +
+			"- ответы на типовые вопросы\n" +
+			"- сбор заявок прямо в чат\n" +
+			"- простая обратная связь.\n\n" +
+			"Напиши /help, чтобы увидеть, что я уже умею."
 		reply := tgbotapi.NewMessage(chatID, text)
-		reply.ParseMode = tgbotapi.ModeMarkdown
 		if _, err := bot.Send(reply); err != nil {
 			logger.Error("failed to send /start reply", "err", err)
 		}
 
 	case "help":
-		text := "Я бот уровня 1 (простые функции).\n\n" +
-			"- Отвечаю на /start и /help\n" +
-			"- Повторяю твои сообщения (echo)\n\n" +
-			"Это шаблон, на основе которого можно делать коммерческие боты."
+		text := "Я бот, который помогает автоматизировать общение с клиентами.\n\n" +
+			"*Что я умею прямо сейчас:*\n" +
+			"/start — приветствие и краткое объяснение\n" +
+			"/help — это сообщение с возможностями\n" +
+			"/about — чем полезен такой бот для бизнеса\n" +
+			"/usecases — примеры задач, которые можно решить ботом\n" +
+			"/ping — проверка, что бот онлайн\n" +
+			"/echo <текст> — повторить ваш текст (пример простой команды)\n\n" +
+			"Если просто написать сообщение — я отвечу тем же текстом. Это демонстрирует, как бот может принимать и обрабатывать любые обращения клиентов."
 		reply := tgbotapi.NewMessage(chatID, text)
 		reply.ParseMode = tgbotapi.ModeMarkdown
 		if _, err := bot.Send(reply); err != nil {
 			logger.Error("failed to send /help reply", "err", err)
+		}
+
+	case "about":
+		text := "Этот бот — пример того, что вы можете получить как продукт.\n\n" +
+			"Он подходит, если вам нужно:\n" +
+			"- быстро отвечать клиентам 24/7\n" +
+			"- разгрузить менеджеров от типовых вопросов\n" +
+			"- собирать заявки и контакты прямо в Telegram\n" +
+			"- аккуратно подводить людей к покупке или записи.\n\n" +
+			"На основе этого бота можно добавить меню, оплату, интеграцию с CRM, базу знаний и любые сценарии под ваш бизнес."
+		reply := tgbotapi.NewMessage(chatID, text)
+		reply.ParseMode = tgbotapi.ModeMarkdown
+		if _, err := bot.Send(reply); err != nil {
+			logger.Error("failed to send /about reply", "err", err)
+		}
+
+	case "features":
+		text := "*Какие возможности можно добавить в такого бота:*\n\n" +
+			"- Меню с разделами (услуги, цены, контакты)\n" +
+			"- Приём заявок: имя, телефон, комментарий → вам в чат или CRM\n" +
+			"- Запись на услуги по времени (простое расписание)\n" +
+			"- Опросы и быстрый сбор обратной связи\n" +
+			"- Отправка файлов, инструкций, прайсов\n" +
+			"- Ограниченный доступ по списку клиентов или ролям.\n\n" +
+			"Текущая версия — минимальный живой пример. Все перечисленное можно добавить в этот же бот под ваши задачи."
+		reply := tgbotapi.NewMessage(chatID, text)
+		reply.ParseMode = tgbotapi.ModeMarkdown
+		if _, err := bot.Send(reply); err != nil {
+			logger.Error("failed to send /features reply", "err", err)
+		}
+
+	case "ping":
+		reply := tgbotapi.NewMessage(chatID, "pong ✅ Бот запущен и готов работать с клиентами.")
+		if _, err := bot.Send(reply); err != nil {
+			logger.Error("failed to send /ping reply", "err", err)
+		}
+
+	case "echo":
+		// /echo используется, если хочется явную команду вместо обычного сообщения
+		args := strings.TrimSpace(msg.CommandArguments())
+		if args == "" {
+			reply := tgbotapi.NewMessage(chatID, "Использование: /echo <текст, который нужно повторить>")
+			if _, err := bot.Send(reply); err != nil {
+				logger.Error("failed to send /echo usage reply", "err", err)
+			}
+			return
+		}
+		reply := tgbotapi.NewMessage(chatID, args)
+		if _, err := bot.Send(reply); err != nil {
+			logger.Error("failed to send /echo reply", "err", err)
+		}
+
+	case "usecases":
+		text := "*Примеры задач, для которых подходит такой бот:*\n\n" +
+			"1. Салон / студия / услуги:\n" +
+			"   — рассказать про услуги и цены\n" +
+			"   — принять заявку или запись\n" +
+			"   — отправить напоминание перед визитом\n\n" +
+			"2. Онлайн‑курсы / эксперты:\n" +
+			"   — выдать материалы и инструкции\n" +
+			"   — собрать вопросы от учеников\n" +
+			"   — аккуратно предлагать доп. продукты.\n\n" +
+			"3. Малый бизнес:\n" +
+			"   — ответы на частые вопросы\n" +
+			"   — получение контакта для звонка\n" +
+			"   — быстрые опросы клиентов.\n\n" +
+			"Идея простая: всё, что менеджер делает руками в переписке, можно постепенно перенести в бота."
+		reply := tgbotapi.NewMessage(chatID, text)
+		reply.ParseMode = tgbotapi.ModeMarkdown
+		if _, err := bot.Send(reply); err != nil {
+			logger.Error("failed to send /usecases reply", "err", err)
 		}
 
 	default:

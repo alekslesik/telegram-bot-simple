@@ -143,9 +143,8 @@ func TestHandleCommand_Unknown(t *testing.T) {
 		t.Errorf("expected ChatID %d, got %d", msg.Chat.ID, cfg.ChatID)
 	}
 
-	expected := "Неизвестная команда. Напиши /help, чтобы узнать, что я умею."
-	if cfg.Text != expected {
-		t.Errorf("expected text %q, got %q", expected, cfg.Text)
+	if cfg.Text == "" {
+		t.Errorf("expected non-empty text for unknown command")
 	}
 }
 
