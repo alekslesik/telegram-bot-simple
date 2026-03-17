@@ -1,63 +1,94 @@
 # telegram-bot-simple
 
-https://t.me/TYygGIBZQUTFmqoA_bot
+Демо-бот в Telegram: `https://t.me/TYygGIBZQUTFmqoA_bot`
 
-Простой шаблон Telegram-бота на Go (long polling, уровень 1) с Docker, рассчитанный на деплой на VPS.
+Это демонстрационный Telegram‑бот, который можно показывать потенциальным заказчикам как «живой пример продукта».
 
-## Требования
+## Что умеет бот (для заказчика)
+
+- **Базовое общение**: бот принимает сообщения и отвечает (пример обработки обращений клиентов).
+- **Информативные команды**:
+  - **`/start`** — короткое приветствие и что делает бот
+  - **`/help`** — список возможностей
+  - **`/about`** — зачем такой бот бизнесу
+  - **`/usecases`** — примеры задач (услуги, обучение, малый бизнес)
+  - **`/features`** — какие функции можно добавить в такого бота (заявки, меню, запись, опросы и т.д.)
+  - **`/ping`** — проверка, что бот онлайн
+  - **`/echo <текст>`** — пример простой команды (повторяет текст)
+
+## Для каких задач лучше выбрать Telegram-бота
+
+- **Поддержка клиентов 24/7**: ответы на частые вопросы, выдача инструкций.
+- **Сбор заявок и контактов**: «оставьте телефон / комментарий» прямо в чате.
+- **Автоматизация типовых сценариев**: прайсы, расписание, анкеты, опросы, напоминания.
+- **Лёгкий вход в продукт**: Telegram не требует установки приложения — клиент уже там.
+
+## Быстрый старт (для разработки)
+
+### Требования
 
 - Go 1.25+
-- Docker (для контейнеризации)
+- Docker + Docker Compose (опционально)
 - Аккаунт Telegram и созданный бот через `@BotFather`
 
-## Настройка окружения
+### Настройка `.env`
 
-1. Создай бота в Telegram через `@BotFather` и получи токен.
-2. В файле `.env` должны быть переменные (файл не коммитится в git):
+1. Скопируй пример:
 
-   ```env
-   TOKEN=ваш_токен_бота
-   USERNAME=ваш_username_бота_без_@
-   ```
+```bash
+cp .env.example .env
+```
 
-3. Локальный запуск:
+2. Заполни `TOKEN` и `USERNAME`.
 
-   ```bash
-   export $(grep -v '^#' .env | xargs)
-   go run main.go
-   ```
+Переменные:
+
+- **`TOKEN`**: токен бота от `@BotFather`
+- **`USERNAME`**: username бота (без `@`)
+- **`LOG_LEVEL`**: `debug` или `info` (по умолчанию `info`)
+- **`LOG_FORMAT`**: `json` или `text` (по умолчанию `text`)
+
+### Запуск локально
+
+```bash
+make run
+```
+
+### Тесты
+
+```bash
+make test
+```
 
 ## Запуск в Docker
 
-Собрать образ:
-
 ```bash
-docker build -t telegram-bot-simple .
+make docker-run
 ```
 
-Запустить контейнер (используя `.env`):
+## Запуск через Docker Compose
 
 ```bash
-docker run --rm \
-  --env-file .env \
-  --name telegram-bot-simple \
-  telegram-bot-simple
+make docker-compose-up
+```
+
+Остановить:
+
+```bash
+make docker-compose-down
 ```
 
 ## Деплой на VPS (общая схема)
 
-1. Создать VPS у любого провайдера (Hetzner, DO, Contabo и т.д.) с установленным Docker.
-2. Скопировать файлы проекта на сервер (например, через `scp` или `git clone`).
+1. Создать VPS у любого провайдера с установленным Docker.
+2. Скопировать проект на сервер (`git clone` или `scp`).
 3. На сервере:
 
-   ```bash
-   cd telegram-bot-simple
-   docker build -t telegram-bot-simple .
-   docker run -d \
-     --env-file .env \
-     --name telegram-bot-simple \
-     --restart unless-stopped \
-     telegram-bot-simple
-   ```
+```bash
+cd telegram-bot-simple
+cp .env.example .env
+nano .env   # заполнить TOKEN/USERNAME и при желании LOG_LEVEL/LOG_FORMAT
+docker compose up -d --build
+```
 
-Бот использует long polling, поэтому не требуется публичный HTTPS и настройка webhook — достаточно, чтобы VPS имел доступ в интернет.
+Бот использует long polling, поэтому обычно не требуется публичный HTTPS и настройка webhook — достаточно, чтобы сервер имел доступ в интернет.
