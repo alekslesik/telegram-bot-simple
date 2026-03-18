@@ -97,10 +97,9 @@ sudo chown -R $USER:$USER /opt/bots/telegram-bot-simple
 cd /opt/bots/telegram-bot-simple
 ```
 
-3. Скопируй на сервер файлы `docker-compose.prod.yaml` и `.env` (секреты храним на сервере, не в git):
+3. Скопируй на сервер файл `.env` (секреты храним на сервере, не в git). `docker-compose.prod.yaml` будет доставляться автодеплоем.
 
 ```bash
-scp docker-compose.prod.yaml user@server:/opt/bots/telegram-bot-simple/
 scp .env user@server:/opt/bots/telegram-bot-simple/
 ```
 
@@ -171,6 +170,20 @@ ssh-copy-id -i ~/.ssh/gh_actions_vps.pub deploy@<VPS_HOST>
 
 Создай GitHub Personal Access Token (classic) и включи scope **`read:packages`**.
 Если GHCR-пакет приватный и `docker pull` не проходит — добавь также scope **`repo`**.
+
+### Версии и теги Docker-образа
+
+- **`dev`**: актуальная версия из ветки `dev` (деплоится на VPS при пуше в `dev`).
+- **`main`**: актуальная версия из `main/master` (деплоится на VPS при пуше в `main/master`).
+- **`sha-...`**: уникальный тег для каждого коммита (удобно для точного отката/проверок).
+- **`vX.Y.Z`**: релизный тег (SemVer). Чтобы выпустить релиз:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Внутри контейнера версия прошивается в бинарь (через `-ldflags`) и печатается при старте как `version/commit/build_date`.
 
 ### Как работает деплой
 

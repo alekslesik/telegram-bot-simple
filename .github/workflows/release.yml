@@ -3,6 +3,8 @@ name: Release (build & push image)
 on:
   push:
     branches: [ dev, main, master ]
+    tags:
+      - "v*.*.*"
   workflow_dispatch: {}
 
 permissions:
@@ -33,7 +35,12 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
+            type=ref,event=tag
             type=sha
+
+      - name: Build date
+        id: build_date
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -43,4 +50,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ steps.build_date.outputs.value }}
 
