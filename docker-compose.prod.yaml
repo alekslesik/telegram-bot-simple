@@ -1,0 +1,9 @@
+version: "3.9"
+
+services:
+  bot:
+    image: ghcr.io/alekslesik/telegram-bot-simple:${IMAGE_TAG:-latest}
+    env_file:
+      - .env
+    restart: unless-stopped
+

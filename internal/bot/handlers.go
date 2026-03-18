@@ -1,0 +1,214 @@
+package bot
+
+import (
+	"bytes"
+	"log/slog"
+	"strings"
+	"text/template"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+type Sender interface {
+	Send(tgbotapi.Chattable) (tgbotapi.Message, error)
+}
+
+type Handlers struct {
+	Bot    Sender
+	Logger *slog.Logger
+}
+
+type Command struct {
+	Name        string
+	Description string
+	ParseMode   string
+	BuildText   func(msg *tgbotapi.Message) string
+}
+
+type UseCaseCategory struct {
+	Title string
+	Items []string
+}
+
+var useCases = []UseCaseCategory{
+	{
+		Title: "Салон / студия / услуги",
+		Items: []string{
+			"рассказать про услуги и цены",
+			"принять заявку или запись",
+			"отправить напоминание перед визитом",
+		},
+	},
+	{
+		Title: "Онлайн‑курсы / эксперты",
+		Items: []string{
+			"выдать материалы и инструкции",
+			"собрать вопросы от учеников",
+			"аккуратно предлагать доп. продукты",
+		},
+	},
+	{
+		Title: "Малый бизнес",
+		Items: []string{
+			"ответы на частые вопросы",
+			"получение контакта для звонка",
+			"быстрые опросы клиентов",
+		},
+	},
+}
+
+var usecasesTmpl = template.Must(template.New("usecases").Funcs(template.FuncMap{
+	"add1": func(i int) int { return i + 1 },
+}).Parse(
+	`*Примеры задач, для которых подходит такой бот:*
+
+{{- range $i, $c := . }}
+{{ add1 $i }}. {{ $c.Title }}:
+{{- range $c.Items }}
+   — {{ . }}
+{{- end }}
+
+{{- end }}
+Идея простая: всё, что менеджер делает руками в переписке, можно постепенно перенести в бота.`,
+))
+
+func renderUseCases() string {
+	var buf bytes.Buffer
+	_ = usecasesTmpl.Execute(&buf, useCases)
+	return buf.String()
+}
+
+func (h Handlers) commandRegistry() map[string]Command {
+	commands := map[string]Command{
+		"start": {
+			Name:        "start",
+			Description: "приветствие и краткое объяснение",
+			BuildText: func(_ *tgbotapi.Message) string {
+				return "Привет! Я демонстрационный Telegram‑бот для бизнеса.\n\n" +
+					"Я показываю, как может выглядеть живой продукт для заказчика:\n" +
+					"- приветствие новых клиентов\n" +
+					"- ответы на типовые вопросы\n" +
+					"- сбор заявок прямо в чат\n" +
+					"- простая обратная связь.\n\n" +
+					"Напиши /help, чтобы увидеть, что я уже умею."
+			},
+		},
+		"about": {
+			Name:        "about",
+			Description: "чем полезен такой бот для бизнеса",
+			ParseMode:   tgbotapi.ModeMarkdown,
+			BuildText: func(_ *tgbotapi.Message) string {
+				return "Этот бот — пример того, что вы можете получить как продукт.\n\n" +
+					"Он подходит, если вам нужно:\n" +
+					"- быстро отвечать клиентам 24/7\n" +
+					"- разгрузить менеджеров от типовых вопросов\n" +
+					"- собирать заявки и контакты прямо в Telegram\n" +
+					"- аккуратно подводить людей к покупке или записи.\n\n" +
+					"На основе этого бота можно добавить меню, оплату, интеграцию с CRM, базу знаний и любые сценарии под ваш бизнес."
+			},
+		},
+		"features": {
+			Name:        "features",
+			Description: "какие функции можно добавить (заявки, меню, запись, опросы...)",
+			ParseMode:   tgbotapi.ModeMarkdown,
+			BuildText: func(_ *tgbotapi.Message) string {
+				return "*Какие возможности можно добавить в такого бота:*\n\n" +
+					"- Меню с разделами (услуги, цены, контакты)\n" +
+					"- Приём заявок: имя, телефон, комментарий → вам в чат или CRM\n" +
+					"- Запись на услуги по времени (простое расписание)\n" +
+					"- Опросы и быстрый сбор обратной связи\n" +
+					"- Отправка файлов, инструкций, прайсов\n" +
+					"- Ограниченный доступ по списку клиентов или ролям.\n\n" +
+					"Текущая версия — минимальный живой пример. Все перечисленное можно добавить в этот же бот под ваши задачи."
+			},
+		},
+		"usecases": {
+			Name:        "usecases",
+			Description: "примеры задач, которые можно решить ботом",
+			ParseMode:   tgbotapi.ModeMarkdown,
+			BuildText: func(_ *tgbotapi.Message) string {
+				return renderUseCases()
+			},
+		},
+		"ping": {
+			Name:        "ping",
+			Description: "проверка, что бот онлайн",
+			BuildText: func(_ *tgbotapi.Message) string {
+				return "pong ✅ Бот запущен и готов работать с клиентами."
+			},
+		},
+		"echo": {
+			Name:        "echo",
+			Description: "повторить ваш текст (пример простой команды)",
+			BuildText: func(msg *tgbotapi.Message) string {
+				args := strings.TrimSpace(msg.CommandArguments())
+				if args == "" {
+					return "Использование: /echo <текст, который нужно повторить>"
+				}
+				return args
+			},
+		},
+	}
+
+	commands["help"] = Command{
+		Name:        "help",
+		Description: "это сообщение с возможностями",
+		ParseMode:   tgbotapi.ModeMarkdown,
+		BuildText: func(_ *tgbotapi.Message) string {
+			lines := []string{
+				"Я бот, который помогает автоматизировать общение с клиентами.\n",
+				"*Что я умею прямо сейчас:*",
+			}
+
+			order := []string{"start", "help", "about", "usecases", "features", "ping", "echo"}
+			for _, name := range order {
+				c := commands[name]
+				label := "/" + c.Name
+				if c.Name == "echo" {
+					label = "/echo <текст>"
+				}
+				lines = append(lines, label+" — "+c.Description)
+			}
+
+			lines = append(lines, "", "Если просто написать сообщение — я отвечу тем же текстом. Это демонстрирует, как бот может принимать и обрабатывать любые обращения клиентов.")
+			return strings.Join(lines, "\n")
+		},
+	}
+
+	return commands
+}
+
+func (h Handlers) HandleMessage(msg *tgbotapi.Message) {
+	chatID := msg.Chat.ID
+
+	if msg.IsCommand() {
+		h.HandleCommand(msg)
+		return
+	}
+
+	reply := tgbotapi.NewMessage(chatID, "Ты написал: "+msg.Text)
+	if _, err := h.Bot.Send(reply); err != nil {
+		h.Logger.Error("failed to send message", "err", err)
+	}
+}
+
+func (h Handlers) HandleCommand(msg *tgbotapi.Message) {
+	chatID := msg.Chat.ID
+
+	cmd, ok := h.commandRegistry()[msg.Command()]
+	if !ok {
+		reply := tgbotapi.NewMessage(chatID, "Неизвестная команда. Напиши /help, чтобы узнать, что я умею.")
+		if _, err := h.Bot.Send(reply); err != nil {
+			h.Logger.Error("failed to send unknown command reply", "err", err)
+		}
+		return
+	}
+
+	reply := tgbotapi.NewMessage(chatID, cmd.BuildText(msg))
+	if cmd.ParseMode != "" {
+		reply.ParseMode = cmd.ParseMode
+	}
+	if _, err := h.Bot.Send(reply); err != nil {
+		h.Logger.Error("failed to send command reply", "cmd", cmd.Name, "err", err)
+	}
+}
