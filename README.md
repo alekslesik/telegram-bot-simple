@@ -134,8 +134,8 @@ newgrp docker
 ```bash
 cd /opt/bots/telegram-bot-simple
 docker login ghcr.io -u "<GHCR_READ_USER>" -p "<GHCR_READ_TOKEN>"
-IMAGE_TAG=dev docker compose -f docker-compose.prod.yaml pull
-IMAGE_TAG=dev docker compose -f docker-compose.prod.yaml up -d
+IMAGE_TAG=sha-<short_sha> docker compose -f docker-compose.prod.yaml pull
+IMAGE_TAG=sha-<short_sha> docker compose -f docker-compose.prod.yaml up -d
 docker ps
 ```
 
@@ -173,8 +173,6 @@ ssh-copy-id -i ~/.ssh/gh_actions_vps.pub deploy@<VPS_HOST>
 
 ### Версии и теги Docker-образа
 
-- **`dev`**: актуальная версия из ветки `dev` (деплоится на VPS при пуше в `dev`).
-- **`main`**: актуальная версия из `main/master` (деплоится на VPS при пуше в `main/master`).
 - **`sha-...`**: уникальный тег для каждого коммита (удобно для точного отката/проверок).
 - **`vX.Y.Z`**: релизный тег (SemVer). Чтобы выпустить релиз:
 
@@ -187,8 +185,8 @@ git push origin v1.2.3
 
 ### Как работает деплой
 
-- Пуш в ветку **`dev`** публикует образ `:dev` и деплоит его на VPS.
-- Пуш в **`main`/`master`** публикует образ `:main` и деплоит его на VPS.
+- Мерж PR в **`main/master`** запускает сборку образа с тегом `sha-...` и деплой на VPS.
+- Пуш тега **`vX.Y.Z`** запускает сборку образа `:vX.Y.Z` и деплой на VPS.
 
 На сервере используется `docker-compose.prod.yaml`, который запускает образ из GHCR:
 
@@ -201,14 +199,13 @@ services:
 ## Деплой на VPS (общая схема)
 
 1. Создать VPS у любого провайдера с установленным Docker.
-2. Скопировать проект на сервер (`git clone` или `scp`).
+2. Положить на сервер `.env` (секреты) и `docker-compose.prod.yaml` (compose может обновляться автодеплоем).
 3. На сервере:
 
 ```bash
-cd telegram-bot-simple
-cp .env.example .env
-nano .env   # заполнить TOKEN/USERNAME и при желании LOG_LEVEL/LOG_FORMAT
-docker compose up -d --build
+cd /opt/bots/telegram-bot-simple
+IMAGE_TAG=v1.2.3 docker compose -f docker-compose.prod.yaml pull
+IMAGE_TAG=v1.2.3 docker compose -f docker-compose.prod.yaml up -d
 ```
 
 Бот использует long polling, поэтому обычно не требуется публичный HTTPS и настройка webhook — достаточно, чтобы сервер имел доступ в интернет.

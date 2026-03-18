@@ -127,5 +127,5 @@ docker-compose-down:
 	docker compose down
 
 ## Full pre-production check: deps, fmt, imports, vet, staticcheck, golangci-lint, tests, vuln, docker build
-preprod: deps fmt imports vet staticcheck golangci-lint test vuln docker-compose-up
+preprod: deps fmt imports vet staticcheck golangci-lint test vuln docker-build
 	@echo "Pre-production checks completed successfully."
