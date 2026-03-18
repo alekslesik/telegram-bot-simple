@@ -13,8 +13,20 @@ import (
 	"github.com/alekslesik/telegram-bot-simple/internal/telegram"
 )
 
+var (
+	Version   = "dev"
+	Commit    = "unknown"
+	BuildDate = "unknown"
+)
+
 func main() {
 	logger := logging.NewFromEnv()
+
+	logger.Info("starting",
+		"version", Version,
+		"commit", Commit,
+		"build_date", BuildDate,
+	)
 
 	token := os.Getenv("TOKEN")
 	if token == "" {

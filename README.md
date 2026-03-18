@@ -27,7 +27,7 @@
 
 ### Требования
 
-- Go 1.25+
+- Go 1.26+
 - Docker + Docker Compose (опционально)
 - Аккаунт Telegram и созданный бот через `@BotFather`
 
@@ -97,11 +97,46 @@ sudo chown -R $USER:$USER /opt/bots/telegram-bot-simple
 cd /opt/bots/telegram-bot-simple
 ```
 
-3. Скопируй на сервер файлы `docker-compose.prod.yaml` и `.env` (секреты храним на сервере, не в git):
+3. Скопируй на сервер файл `.env` (секреты храним на сервере, не в git). `docker-compose.prod.yaml` будет доставляться автодеплоем.
 
 ```bash
-scp docker-compose.prod.yaml user@server:/opt/bots/telegram-bot-simple/
 scp .env user@server:/opt/bots/telegram-bot-simple/
+```
+
+### Что нужно сделать на VPS (кратко)
+
+- **Установить Docker + Compose (Ubuntu/Debian)**:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl
+curl -fsSL https://get.docker.com | sudo sh
+sudo apt install -y docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+- **Подготовить папку приложения** (должны лежать `docker-compose.prod.yaml` и `.env`):
+
+```bash
+sudo mkdir -p /opt/bots/telegram-bot-simple
+sudo chown -R $USER:$USER /opt/bots/telegram-bot-simple
+```
+
+- **Дать пользователю доступ к Docker** (чтобы деплой по SSH мог запускать `docker compose`):
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+- **Быстрая проверка вручную на VPS**:
+
+```bash
+cd /opt/bots/telegram-bot-simple
+docker login ghcr.io -u "<GHCR_READ_USER>" -p "<GHCR_READ_TOKEN>"
+IMAGE_TAG=dev docker compose -f docker-compose.prod.yaml pull
+IMAGE_TAG=dev docker compose -f docker-compose.prod.yaml up -d
+docker ps
 ```
 
 ### Секреты GitHub для деплоя
@@ -114,6 +149,41 @@ scp .env user@server:/opt/bots/telegram-bot-simple/
 - **`VPS_APP_PATH`**: путь на сервере, например `/opt/bots/telegram-bot-simple`
 - **`GHCR_READ_USER`**: логин GitHub (владелец пакета)
 - **`GHCR_READ_TOKEN`**: токен с правами `read:packages` (для `docker login ghcr.io` на сервере)
+
+#### Где взять `VPS_SSH_KEY`
+
+Сгенерируй отдельную пару ключей для деплоя на локальной машине:
+
+```bash
+ssh-keygen -t ed25519 -C "gh-actions-deploy" -f ~/.ssh/gh_actions_vps
+```
+
+Публичный ключ добавь на VPS в `~/.ssh/authorized_keys` пользователя, под которым будет деплой:
+
+```bash
+ssh-copy-id -i ~/.ssh/gh_actions_vps.pub deploy@<VPS_HOST>
+```
+
+В GitHub Secret **`VPS_SSH_KEY`** вставь **содержимое приватного** `~/.ssh/gh_actions_vps` (целиком).
+
+#### Где взять `GHCR_READ_TOKEN`
+
+Создай GitHub Personal Access Token (classic) и включи scope **`read:packages`**.
+Если GHCR-пакет приватный и `docker pull` не проходит — добавь также scope **`repo`**.
+
+### Версии и теги Docker-образа
+
+- **`dev`**: актуальная версия из ветки `dev` (деплоится на VPS при пуше в `dev`).
+- **`main`**: актуальная версия из `main/master` (деплоится на VPS при пуше в `main/master`).
+- **`sha-...`**: уникальный тег для каждого коммита (удобно для точного отката/проверок).
+- **`vX.Y.Z`**: релизный тег (SemVer). Чтобы выпустить релиз:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Внутри контейнера версия прошивается в бинарь (через `-ldflags`) и печатается при старте как `version/commit/build_date`.
 
 ### Как работает деплой
 
