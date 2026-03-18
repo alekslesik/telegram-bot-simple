@@ -27,13 +27,14 @@ FROM alpine:3.23
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates && update-ca-certificates
+RUN apk add --no-cache ca-certificates tzdata && update-ca-certificates
 
 COPY --from=builder /bot /app/bot
 
 # TOKEN и USERNAME должны приходить через окружение или --env-file
 ENV TOKEN=""
 ENV USERNAME=""
+ENV TZ="Europe/Moscow"
 
 CMD ["/app/bot"]
 
