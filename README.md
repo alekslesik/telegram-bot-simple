@@ -134,8 +134,8 @@ newgrp docker
 ```bash
 cd /opt/bots/telegram-bot-simple
 docker login ghcr.io -u "<GHCR_READ_USER>" -p "<GHCR_READ_TOKEN>"
-IMAGE_TAG=sha-<short_sha> docker compose -f docker-compose.prod.yaml pull
-IMAGE_TAG=sha-<short_sha> docker compose -f docker-compose.prod.yaml up -d
+IMAGE_TAG=v1.2.3 docker compose -f docker-compose.prod.yaml pull
+IMAGE_TAG=v1.2.3 docker compose -f docker-compose.prod.yaml up -d
 docker ps
 ```
 
@@ -173,20 +173,24 @@ ssh-copy-id -i ~/.ssh/gh_actions_vps.pub deploy@<VPS_HOST>
 
 ### Версии и теги Docker-образа
 
-- **`sha-...`**: уникальный тег для каждого коммита (удобно для точного отката/проверок).
-- **`vX.Y.Z`**: релизный тег (SemVer). Чтобы выпустить релиз:
+- **`vX.Y.Z`**: релизный тег (SemVer). Образ публикуется как `ghcr.io/<owner>/<repo>:vX.Y.Z`.
+
+Схема релиза:
+
+1) Создай git-тег:
 
 ```bash
-git tag v1.2.3
+git tag -a v1.2.3 -m "Release v1.2.3"
 git push origin v1.2.3
 ```
+
+2) В GitHub открой **Releases** → **Draft a new release** → выбери тег `v1.2.3` → нажми **Publish release**.
 
 Внутри контейнера версия прошивается в бинарь (через `-ldflags`) и печатается при старте как `version/commit/build_date`.
 
 ### Как работает деплой
 
-- Мерж PR в **`main/master`** запускает сборку образа с тегом `sha-...` и деплой на VPS.
-- Пуш тега **`vX.Y.Z`** запускает сборку образа `:vX.Y.Z` и деплой на VPS.
+- Деплой запускается **только после публикации GitHub Release** (кнопка **Publish release**) и деплоит образ `:vX.Y.Z` на VPS.
 
 На сервере используется `docker-compose.prod.yaml`, который запускает образ из GHCR:
 
