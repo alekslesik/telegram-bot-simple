@@ -1,10 +1,8 @@
 name: Release (build & push image)
 
 on:
-  push:
-    branches: [ main, master ]
-    tags:
-      - "v*.*.*"
+  release:
+    types: [published]
   workflow_dispatch: {}
 
 permissions:
@@ -23,15 +21,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          short_sha="$(echo "${GITHUB_SHA}" | cut -c1-7)"
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            image_tag="${GITHUB_REF_NAME}"
-            version="${GITHUB_REF_NAME}"
-          else
-            image_tag="sha-${short_sha}"
-            version="sha-${short_sha}"
+          if [[ "${GITHUB_EVENT_NAME}" != "release" ]]; then
+            echo "This workflow is intended to run on GitHub Release (published)." >&2
+            exit 1
           fi
-          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          image_tag="${{ github.event.release.tag_name }}"
+          version="${{ github.event.release.tag_name }}"
           echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
@@ -51,8 +46,6 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=ref,event=tag
-            type=sha
             type=raw,value=${{ steps.vars.outputs.image_tag }}
 
       - name: Build date
@@ -97,12 +90,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -euo pipefail
-            short_sha="$(echo "${{ github.sha }}" | cut -c1-7)"
-            if [[ "${{ github.ref_type }}" == "tag" ]]; then
-              IMAGE_TAG="${{ github.ref_name }}"
-            else
-              IMAGE_TAG="sha-${short_sha}"
-            fi
+            IMAGE_TAG="${{ github.event.release.tag_name }}"
             cd "${{ secrets.VPS_APP_PATH }}"
             echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_READ_USER }}" --password-stdin
             IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yaml pull
