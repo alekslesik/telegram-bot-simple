@@ -22,7 +22,7 @@ help:
 	@echo "  staticcheck   - Run staticcheck (if installed)"
 	@echo "  golangci-lint - Run golangci-lint (if installed)"
 	@echo "  test          - Run go tests"
-	@echo "  vuln          - Run govulncheck (if installed)"
+	@echo "  vuln          - Run govulncheck (via go run)"
 	@echo "  docker-build  - Build Docker image"
 	@echo "  docker-run    - Run bot in Docker with .env"
 	@echo "  docker-stop   - Stop running Docker container"
@@ -52,7 +52,7 @@ imports:
 
 ## Build Go binary
 build: deps
-	go build -o $(BIN) ./main.go
+	go build -o $(BIN) ./cmd/bot
 
 ## Run bot locally using current shell environment (.env helper)
 run:
@@ -60,7 +60,7 @@ run:
 		echo "Loading env from $(ENV_FILE)"; \
 		set -a; . ./$(ENV_FILE); set +a; \
 	fi; \
-	go run ./main.go
+	go run ./cmd/bot
 
 ## Aggregate lints: fmt, vet, staticcheck, golangci-lint (if installed)
 lint: fmt vet staticcheck golangci-lint
@@ -72,6 +72,7 @@ vet:
 ## Staticcheck (requires honnef.co/go/tools/cmd/staticcheck)
 staticcheck:
 	@if command -v staticcheck >/dev/null 2>&1; then \
+		echo "staticcheck $(GO_FILES)"; \
 		staticcheck $(GO_FILES); \
 	else \
 		echo "staticcheck not found, install with: go install honnef.co/go/tools/cmd/staticcheck@latest"; \
@@ -79,6 +80,7 @@ staticcheck:
 
 ## GolangCI-Lint (requires golangci-lint installed)
 golangci-lint:
+	@echo "golangci-lint $(GO_FILES)";
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		if ! golangci-lint run ./...; then \
 			echo "golangci-lint failed (likely built with older Go). To update, run:"; \
@@ -94,11 +96,8 @@ test:
 
 ## Vulnerability check (requires govulncheck)
 vuln:
-	@if command -v govulncheck >/dev/null 2>&1; then \
-		govulncheck ./...; \
-	else \
-		echo "govulncheck not found, install with: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
-	fi
+	@echo "govulncheck ./..."
+	@go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 ## Build Docker image
 docker-build:
@@ -128,5 +127,5 @@ docker-compose-down:
 	docker compose down
 
 ## Full pre-production check: deps, fmt, imports, vet, staticcheck, golangci-lint, tests, vuln, docker build
-preprod: deps fmt imports vet staticcheck golangci-lint test vuln docker-build
+preprod: deps fmt imports vet staticcheck golangci-lint test vuln docker-compose-up
 	@echo "Pre-production checks completed successfully."
