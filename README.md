@@ -27,7 +27,7 @@
 
 ### Требования
 
-- Go 1.25+
+- Go 1.26+
 - Docker + Docker Compose (опционально)
 - Аккаунт Telegram и созданный бот через `@BotFather`
 
@@ -104,6 +104,42 @@ scp docker-compose.prod.yaml user@server:/opt/bots/telegram-bot-simple/
 scp .env user@server:/opt/bots/telegram-bot-simple/
 ```
 
+### Что нужно сделать на VPS (кратко)
+
+- **Установить Docker + Compose (Ubuntu/Debian)**:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl
+curl -fsSL https://get.docker.com | sudo sh
+sudo apt install -y docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+- **Подготовить папку приложения** (должны лежать `docker-compose.prod.yaml` и `.env`):
+
+```bash
+sudo mkdir -p /opt/bots/telegram-bot-simple
+sudo chown -R $USER:$USER /opt/bots/telegram-bot-simple
+```
+
+- **Дать пользователю доступ к Docker** (чтобы деплой по SSH мог запускать `docker compose`):
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+- **Быстрая проверка вручную на VPS**:
+
+```bash
+cd /opt/bots/telegram-bot-simple
+docker login ghcr.io -u "<GHCR_READ_USER>" -p "<GHCR_READ_TOKEN>"
+IMAGE_TAG=dev docker compose -f docker-compose.prod.yaml pull
+IMAGE_TAG=dev docker compose -f docker-compose.prod.yaml up -d
+docker ps
+```
+
 ### Секреты GitHub для деплоя
 
 В Settings → Secrets and variables → Actions добавь:
@@ -114,6 +150,27 @@ scp .env user@server:/opt/bots/telegram-bot-simple/
 - **`VPS_APP_PATH`**: путь на сервере, например `/opt/bots/telegram-bot-simple`
 - **`GHCR_READ_USER`**: логин GitHub (владелец пакета)
 - **`GHCR_READ_TOKEN`**: токен с правами `read:packages` (для `docker login ghcr.io` на сервере)
+
+#### Где взять `VPS_SSH_KEY`
+
+Сгенерируй отдельную пару ключей для деплоя на локальной машине:
+
+```bash
+ssh-keygen -t ed25519 -C "gh-actions-deploy" -f ~/.ssh/gh_actions_vps
+```
+
+Публичный ключ добавь на VPS в `~/.ssh/authorized_keys` пользователя, под которым будет деплой:
+
+```bash
+ssh-copy-id -i ~/.ssh/gh_actions_vps.pub deploy@<VPS_HOST>
+```
+
+В GitHub Secret **`VPS_SSH_KEY`** вставь **содержимое приватного** `~/.ssh/gh_actions_vps` (целиком).
+
+#### Где взять `GHCR_READ_TOKEN`
+
+Создай GitHub Personal Access Token (classic) и включи scope **`read:packages`**.
+Если GHCR-пакет приватный и `docker pull` не проходит — добавь также scope **`repo`**.
 
 ### Как работает деплой
 
