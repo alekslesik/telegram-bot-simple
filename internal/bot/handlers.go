@@ -31,12 +31,12 @@ type UseCaseCategory struct {
 }
 
 var commandButtons = map[string]string{
-	"🚀 Старт":        "start",
-	"📋 Демо-меню":    "menu",
-	"🆘 Помощь":       "help",
-	"ℹ️ О боте":       "about",
-	"💼 Примеры задач": "usecases",
-	"🧩 Возможности":  "features",
+	"🚀 Старт":            "start",
+	"📋 Демо-меню":        "menu",
+	"🆘 Помощь":           "help",
+	"ℹ️ О боте":          "about",
+	"💼 Примеры задач":    "usecases",
+	"🧩 Возможности":      "features",
 	"✅ Проверка статуса": "ping",
 }
 
