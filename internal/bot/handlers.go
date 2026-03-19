@@ -31,7 +31,7 @@ type UseCaseCategory struct {
 }
 
 var commandButtons = map[string]string{
-	"ℹ️ О боте":      "about",
+	"ℹ️ О боте":     "about",
 	"🧩 Возможности": "features",
 	"💼 Кейсы":       "usecases",
 	"✅ Статус":      "ping",

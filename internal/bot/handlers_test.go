@@ -123,4 +123,3 @@ func TestHandlers_HandleMessage_ButtonMappedToCommand(t *testing.T) {
 		t.Fatalf("expected status command response, got %q", cfg.Text)
 	}
 }
-
