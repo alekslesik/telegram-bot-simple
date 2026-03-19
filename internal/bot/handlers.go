@@ -30,6 +30,32 @@ type UseCaseCategory struct {
 	Items []string
 }
 
+var commandButtons = map[string]string{
+	"ℹ️ О боте":     "about",
+	"🧩 Возможности": "features",
+	"💼 Кейсы":       "usecases",
+	"✅ Статус":      "ping",
+	"📋 Меню":        "help",
+	"🆘 Помощь":      "help",
+}
+
+func commandKeyboard() tgbotapi.ReplyKeyboardMarkup {
+	return tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("ℹ️ О боте"),
+			tgbotapi.NewKeyboardButton("🧩 Возможности"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("💼 Кейсы"),
+			tgbotapi.NewKeyboardButton("✅ Статус"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("📋 Меню"),
+			tgbotapi.NewKeyboardButton("🆘 Помощь"),
+		),
+	)
+}
+
 var useCases = []UseCaseCategory{
 	{
 		Title: "Салон / студия / услуги",
@@ -186,7 +212,13 @@ func (h Handlers) HandleMessage(msg *tgbotapi.Message) {
 		return
 	}
 
+	if cmdName, ok := commandButtons[strings.TrimSpace(msg.Text)]; ok {
+		h.sendCommandReply(chatID, cmdName, msg)
+		return
+	}
+
 	reply := tgbotapi.NewMessage(chatID, "Ты написал: "+msg.Text)
+	reply.ReplyMarkup = commandKeyboard()
 	if _, err := h.Bot.Send(reply); err != nil {
 		h.Logger.Error("failed to send message", "err", err)
 	}
@@ -194,10 +226,14 @@ func (h Handlers) HandleMessage(msg *tgbotapi.Message) {
 
 func (h Handlers) HandleCommand(msg *tgbotapi.Message) {
 	chatID := msg.Chat.ID
+	h.sendCommandReply(chatID, msg.Command(), msg)
+}
 
-	cmd, ok := h.commandRegistry()[msg.Command()]
+func (h Handlers) sendCommandReply(chatID int64, cmdName string, msg *tgbotapi.Message) {
+	cmd, ok := h.commandRegistry()[cmdName]
 	if !ok {
 		reply := tgbotapi.NewMessage(chatID, "Неизвестная команда. Напиши /help, чтобы узнать, что я умею.")
+		reply.ReplyMarkup = commandKeyboard()
 		if _, err := h.Bot.Send(reply); err != nil {
 			h.Logger.Error("failed to send unknown command reply", "err", err)
 		}
@@ -208,7 +244,8 @@ func (h Handlers) HandleCommand(msg *tgbotapi.Message) {
 	if cmd.ParseMode != "" {
 		reply.ParseMode = cmd.ParseMode
 	}
+	reply.ReplyMarkup = commandKeyboard()
 	if _, err := h.Bot.Send(reply); err != nil {
-		h.Logger.Error("failed to send command reply", "cmd", cmd.Name, "err", err)
+		h.Logger.Error("failed to send command reply", "cmd", cmdName, "err", err)
 	}
 }

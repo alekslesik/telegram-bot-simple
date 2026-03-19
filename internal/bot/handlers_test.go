@@ -3,6 +3,7 @@ package bot
 import (
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -72,6 +73,9 @@ func TestHandlers_HandleCommand_Start(t *testing.T) {
 	if cfg.Text == "" {
 		t.Fatalf("expected non-empty /start reply")
 	}
+	if _, ok := cfg.ReplyMarkup.(tgbotapi.ReplyKeyboardMarkup); !ok {
+		t.Fatalf("expected reply keyboard markup for /start")
+	}
 }
 
 func TestHandlers_HandleCommand_Echo_Args(t *testing.T) {
@@ -97,5 +101,25 @@ func TestHandlers_HandleCommand_Echo_Args(t *testing.T) {
 	}
 	if cfg.Text != "hello" {
 		t.Fatalf("expected echoed args %q, got %q", "hello", cfg.Text)
+	}
+}
+
+func TestHandlers_HandleMessage_ButtonMappedToCommand(t *testing.T) {
+	fb := &fakeBot{}
+	h := newTestHandlers(fb)
+
+	msg := &tgbotapi.Message{
+		Chat: &tgbotapi.Chat{ID: 555},
+		Text: "✅ Статус",
+	}
+
+	h.HandleMessage(msg)
+
+	cfg, ok := fb.last.(tgbotapi.MessageConfig)
+	if !ok {
+		t.Fatalf("expected MessageConfig, got %T", fb.last)
+	}
+	if !strings.Contains(cfg.Text, "pong") {
+		t.Fatalf("expected status command response, got %q", cfg.Text)
 	}
 }
