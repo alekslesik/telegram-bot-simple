@@ -98,4 +98,7 @@ jobs:
             echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_READ_USER }}" --password-stdin
             IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yaml pull
             IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yaml up -d
+            sleep 10
+            docker ps
+            docker compose -f docker-compose.prod.yaml logs --no-color --tail=100 bot
             docker image prune -f
