@@ -110,7 +110,7 @@ func TestHandlers_HandleMessage_ButtonMappedToCommand(t *testing.T) {
 
 	msg := &tgbotapi.Message{
 		Chat: &tgbotapi.Chat{ID: 555},
-		Text: "✅ Статус",
+		Text: "✅ Проверка статуса",
 	}
 
 	h.HandleMessage(msg)
@@ -120,6 +120,6 @@ func TestHandlers_HandleMessage_ButtonMappedToCommand(t *testing.T) {
 		t.Fatalf("expected MessageConfig, got %T", fb.last)
 	}
 	if !strings.Contains(cfg.Text, "pong") {
-		t.Fatalf("expected status command response, got %q", cfg.Text)
+		t.Fatalf("expected status response, got %q", cfg.Text)
 	}
 }

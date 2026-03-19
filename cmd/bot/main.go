@@ -67,6 +67,7 @@ func main() {
 
 	commands := tgbotapi.NewSetMyCommands(
 		tgbotapi.BotCommand{Command: "start", Description: "🚀 Старт"},
+		tgbotapi.BotCommand{Command: "menu", Description: "📋 Демо-меню"},
 		tgbotapi.BotCommand{Command: "help", Description: "📋 Меню команд"},
 		tgbotapi.BotCommand{Command: "about", Description: "ℹ️ О боте"},
 		tgbotapi.BotCommand{Command: "usecases", Description: "💼 Примеры задач"},
