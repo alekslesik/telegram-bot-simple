@@ -6,7 +6,7 @@ ENV_FILE := .env
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all run build deps fmt imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs docker-compose-up docker-compose-down preprod vuln
+.PHONY: help all run build deps fmt fmt-check imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs docker-compose-up docker-compose-down preprod vuln
 
 ## Show available make targets
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "  build         - Build Go binary"
 	@echo "  deps          - Tidy Go modules (go mod tidy)"
 	@echo "  fmt           - Format code with gofmt"
+	@echo "  fmt-check     - Check formatting with gofmt -l"
 	@echo "  imports       - Organize imports with goimports"
 	@echo "  lint          - Run all linters (fmt, vet, staticcheck, golangci-lint)"
 	@echo "  vet           - Run go vet"
@@ -41,6 +42,17 @@ deps:
 ## Format code with gofmt
 fmt:
 	gofmt -w .
+
+## Check formatting with gofmt (no file modifications)
+fmt-check:
+	@unformatted="$$(gofmt -l .)"; \
+	if [ -n "$$unformatted" ]; then \
+		echo "These files are not gofmt-formatted:"; \
+		echo "$$unformatted"; \
+		echo ""; \
+		echo "Run: make fmt"; \
+		exit 1; \
+	fi
 
 ## Organize imports (requires golang.org/x/tools/cmd/goimports)
 imports:

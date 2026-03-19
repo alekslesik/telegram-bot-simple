@@ -31,27 +31,31 @@ type UseCaseCategory struct {
 }
 
 var commandButtons = map[string]string{
-	"ℹ️ О боте":     "about",
-	"🧩 Возможности": "features",
-	"💼 Кейсы":       "usecases",
-	"✅ Статус":      "ping",
-	"📋 Меню":        "help",
-	"🆘 Помощь":      "help",
+	"🚀 Старт":            "start",
+	"📋 Демо-меню":        "menu",
+	"🆘 Помощь":           "help",
+	"ℹ️ О боте":          "about",
+	"💼 Примеры задач":    "usecases",
+	"🧩 Возможности":      "features",
+	"✅ Проверка статуса": "ping",
 }
 
 func commandKeyboard() tgbotapi.ReplyKeyboardMarkup {
 	return tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("🚀 Старт"),
+			tgbotapi.NewKeyboardButton("📋 Демо-меню"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("🆘 Помощь"),
 			tgbotapi.NewKeyboardButton("ℹ️ О боте"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("💼 Примеры задач"),
 			tgbotapi.NewKeyboardButton("🧩 Возможности"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("💼 Кейсы"),
-			tgbotapi.NewKeyboardButton("✅ Статус"),
-		),
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("📋 Меню"),
-			tgbotapi.NewKeyboardButton("🆘 Помощь"),
+			tgbotapi.NewKeyboardButton("✅ Проверка статуса"),
 		),
 	)
 }
@@ -117,6 +121,13 @@ func (h Handlers) commandRegistry() map[string]Command {
 					"- сбор заявок прямо в чат\n" +
 					"- простая обратная связь.\n\n" +
 					"Напиши /help, чтобы увидеть, что я уже умею."
+			},
+		},
+		"menu": {
+			Name:        "menu",
+			Description: "показать демо-меню кнопками",
+			BuildText: func(_ *tgbotapi.Message) string {
+				return "Пожалуйста, выберите пункт меню."
 			},
 		},
 		"about": {
@@ -186,7 +197,7 @@ func (h Handlers) commandRegistry() map[string]Command {
 				"*Что я умею прямо сейчас:*",
 			}
 
-			order := []string{"start", "help", "about", "usecases", "features", "ping", "echo"}
+			order := []string{"start", "menu", "help", "about", "usecases", "features", "ping", "echo"}
 			for _, name := range order {
 				c := commands[name]
 				label := "/" + c.Name

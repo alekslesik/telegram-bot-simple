@@ -41,12 +41,8 @@ jobs:
       - name: Go mod tidy
         run: make deps
 
-      - name: Format (gofmt)
-        run: make fmt
-
-      - name: Ensure working tree clean after formatting
-        run: |
-          git diff --exit-code
+      - name: Format check (gofmt)
+        run: make fmt-check
 
       - name: Organize imports (goimports)
         run: make imports
