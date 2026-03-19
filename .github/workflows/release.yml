@@ -5,6 +5,9 @@ on:
     types: [published]
   workflow_dispatch: {}
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   packages: write
@@ -14,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Compute image/version vars
         id: vars
@@ -70,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Upload docker-compose.prod.yaml
         uses: appleboy/scp-action@v0.1.7
@@ -95,4 +98,7 @@ jobs:
             echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_READ_USER }}" --password-stdin
             IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yaml pull
             IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yaml up -d
+            sleep 10
+            docker ps
+            docker compose -f docker-compose.prod.yaml logs --no-color --tail=100 bot
             docker image prune -f
