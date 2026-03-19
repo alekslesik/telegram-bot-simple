@@ -35,6 +35,7 @@ var commandButtons = map[string]string{
 	"🧩 Возможности": "features",
 	"💼 Кейсы":       "usecases",
 	"✅ Статус":      "ping",
+	"📋 Меню":        "help",
 	"🆘 Помощь":      "help",
 }
 
@@ -49,6 +50,7 @@ func commandKeyboard() tgbotapi.ReplyKeyboardMarkup {
 			tgbotapi.NewKeyboardButton("✅ Статус"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("📋 Меню"),
 			tgbotapi.NewKeyboardButton("🆘 Помощь"),
 		),
 	)

@@ -65,6 +65,19 @@ func main() {
 		)
 	}
 
+	commands := tgbotapi.NewSetMyCommands(
+		tgbotapi.BotCommand{Command: "start", Description: "🚀 Старт"},
+		tgbotapi.BotCommand{Command: "help", Description: "📋 Меню команд"},
+		tgbotapi.BotCommand{Command: "about", Description: "ℹ️ О боте"},
+		tgbotapi.BotCommand{Command: "usecases", Description: "💼 Примеры задач"},
+		tgbotapi.BotCommand{Command: "features", Description: "🧩 Возможности"},
+		tgbotapi.BotCommand{Command: "ping", Description: "✅ Проверка статуса"},
+		tgbotapi.BotCommand{Command: "echo", Description: "🗣️ Повторить текст"},
+	)
+	if _, err := tg.Request(commands); err != nil {
+		logger.Error("failed to register bot commands", "err", err)
+	}
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
