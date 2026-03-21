@@ -97,6 +97,10 @@ func main() {
 	for {
 		select {
 		case update := <-updates:
+			if update.CallbackQuery != nil {
+				h.HandleCallback(update.CallbackQuery)
+				continue
+			}
 			if update.Message == nil {
 				continue
 			}

@@ -3,10 +3,11 @@ BIN := bot
 GO_FILES := ./...
 DOCKER_IMAGE := $(APP_NAME)
 ENV_FILE := .env
+VERSION ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all run build deps fmt fmt-check imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs docker-compose-up docker-compose-down preprod vuln
+.PHONY: help all run build deps fmt fmt-check imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs docker-compose-up docker-compose-down preprod vuln tag-create tag-push tag-release
 
 ## Show available make targets
 help:
@@ -31,6 +32,9 @@ help:
 	@echo "  docker-compose-up   - Run bot via docker-compose (uses .env)"
 	@echo "  docker-compose-down - Stop bot started by docker-compose"
 	@echo "  preprod       - Full pre-production checks (deps, fmt, imports, linters, tests, vuln, docker build)"
+	@echo "  tag-create    - Create annotated git tag (VERSION=vX.Y.Z)"
+	@echo "  tag-push      - Push git tag to origin (VERSION=vX.Y.Z)"
+	@echo "  tag-release   - Create and push tag (VERSION=vX.Y.Z)"
 
 ## Default: run all pre-production checks
 all: preprod
@@ -141,3 +145,22 @@ docker-compose-down:
 ## Full pre-production check: deps, fmt, imports, vet, staticcheck, golangci-lint, tests, vuln, docker build
 preprod: deps fmt imports vet staticcheck golangci-lint test vuln docker-build
 	@echo "Pre-production checks completed successfully."
+
+## Create annotated git tag (requires v=vX.Y.Z)
+tag-create:
+	@if [ -z "$(v)" ]; then \
+		echo "Usage: make tag-create v=vX.Y.Z"; \
+		exit 1; \
+	fi
+	git tag -a "$(v)" -m "Release $(v)"
+
+## Push git tag to origin (requires v=vX.Y.Z)
+tag-push:
+	@if [ -z "$(v)" ]; then \
+		echo "Usage: make tag-push v=vX.Y.Z"; \
+		exit 1; \
+	fi
+	git push origin "$(v)"
+
+## Create and push git tag in one command (requires v=vX.Y.Z)
+tag-release: tag-create tag-push

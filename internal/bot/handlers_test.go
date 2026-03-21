@@ -18,7 +18,11 @@ func (f *fakeBot) Send(c tgbotapi.Chattable) (tgbotapi.Message, error) {
 	return tgbotapi.Message{}, nil
 }
 
-func newTestHandlers(bot Sender) Handlers {
+func (f *fakeBot) Request(tgbotapi.Chattable) (*tgbotapi.APIResponse, error) {
+	return &tgbotapi.APIResponse{Ok: true}, nil
+}
+
+func newTestHandlers(bot TelegramClient) Handlers {
 	return Handlers{
 		Bot:    bot,
 		Logger: slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{})),
