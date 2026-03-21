@@ -9,12 +9,14 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type Sender interface {
+// TelegramClient — минимум для Send и ответа на callback (answerCallbackQuery).
+type TelegramClient interface {
 	Send(tgbotapi.Chattable) (tgbotapi.Message, error)
+	Request(tgbotapi.Chattable) (*tgbotapi.APIResponse, error)
 }
 
 type Handlers struct {
-	Bot    Sender
+	Bot    TelegramClient
 	Logger *slog.Logger
 }
 
@@ -38,6 +40,29 @@ var commandButtons = map[string]string{
 	"💼 Примеры задач":    "usecases",
 	"🧩 Возможности":      "features",
 	"✅ Проверка статуса": "ping",
+	"🗣️ Повторить текст":  "echo",
+}
+
+// demoInlineMenuKeyboard — те же пункты, что reply-клавиатура и меню у поля ввода.
+func demoInlineMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🚀 Старт", "cmd:start"),
+			tgbotapi.NewInlineKeyboardButtonData("📋 Демо-меню", "cmd:menu"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🆘 Помощь", "cmd:help"),
+			tgbotapi.NewInlineKeyboardButtonData("ℹ️ О боте", "cmd:about"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💼 Примеры задач", "cmd:usecases"),
+			tgbotapi.NewInlineKeyboardButtonData("🧩 Возможности", "cmd:features"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("✅ Проверка статуса", "cmd:ping"),
+			tgbotapi.NewInlineKeyboardButtonData("🗣️ Повторить текст", "cmd:echo"),
+		),
+	)
 }
 
 func commandKeyboard() tgbotapi.ReplyKeyboardMarkup {
@@ -56,6 +81,7 @@ func commandKeyboard() tgbotapi.ReplyKeyboardMarkup {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("✅ Проверка статуса"),
+			tgbotapi.NewKeyboardButton("🗣️ Повторить текст"),
 		),
 	)
 }
@@ -255,8 +281,36 @@ func (h Handlers) sendCommandReply(chatID int64, cmdName string, msg *tgbotapi.M
 	if cmd.ParseMode != "" {
 		reply.ParseMode = cmd.ParseMode
 	}
-	reply.ReplyMarkup = commandKeyboard()
+	if cmdName == "menu" {
+		inline := demoInlineMenuKeyboard()
+		reply.ReplyMarkup = &inline
+	} else {
+		reply.ReplyMarkup = commandKeyboard()
+	}
 	if _, err := h.Bot.Send(reply); err != nil {
 		h.Logger.Error("failed to send command reply", "cmd", cmdName, "err", err)
 	}
+}
+
+// HandleCallback — нажатия на inline-кнопки (те же команды, что в основном меню).
+func (h Handlers) HandleCallback(q *tgbotapi.CallbackQuery) {
+	if q == nil || q.Message == nil {
+		return
+	}
+	data := strings.TrimSpace(q.Data)
+	if !strings.HasPrefix(data, "cmd:") {
+		if _, err := h.Bot.Request(tgbotapi.NewCallback(q.ID, "")); err != nil {
+			h.Logger.Error("failed to answer unknown callback", "err", err)
+		}
+		return
+	}
+	cmdName := strings.TrimPrefix(data, "cmd:")
+	if _, err := h.Bot.Request(tgbotapi.NewCallback(q.ID, "")); err != nil {
+		h.Logger.Error("failed to answer callback", "err", err)
+	}
+	fake := &tgbotapi.Message{
+		Chat: q.Message.Chat,
+		From: q.From,
+	}
+	h.sendCommandReply(q.Message.Chat.ID, cmdName, fake)
 }
