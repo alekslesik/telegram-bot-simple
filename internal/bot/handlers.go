@@ -40,7 +40,7 @@ var commandButtons = map[string]string{
 	"💼 Примеры задач":    "usecases",
 	"🧩 Возможности":      "features",
 	"✅ Проверка статуса": "ping",
-	"🗣️ Повторить текст":  "echo",
+	"🗣️ Повторить текст": "echo",
 }
 
 // demoInlineMenuKeyboard — те же пункты, что reply-клавиатура и меню у поля ввода.
