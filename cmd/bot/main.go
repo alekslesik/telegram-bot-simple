@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,21 +21,93 @@ var (
 	BuildDate = "unknown"
 )
 
+// loadEuropeMoscow is swappable in tests to cover the LoadLocation error path.
+var loadEuropeMoscow = func() (*time.Location, error) {
+	return time.LoadLocation("Europe/Moscow")
+}
+
+// formatBuildDate turns an RFC3339 / RFC3339Nano build timestamp into log display format (Europe/Moscow).
+func formatBuildDate(raw string) string {
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		if loc, locErr := loadEuropeMoscow(); locErr == nil {
+			t = t.In(loc)
+		}
+		return t.Format("02/01/2006 15:04:05")
+	}
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		if loc, locErr := loadEuropeMoscow(); locErr == nil {
+			t = t.In(loc)
+		}
+		return t.Format("02/01/2006 15:04:05")
+	}
+	return raw
+}
+
+func applyTelegramUpdate(h *bot.Handlers, u tgbotapi.Update) {
+	if u.CallbackQuery != nil {
+		h.HandleCallback(u.CallbackQuery)
+		return
+	}
+	if u.Message == nil {
+		return
+	}
+	h.HandleMessage(u.Message)
+}
+
+func logAuthorized(logger slogLogger, username, botUsername string) {
+	if username != "" {
+		logger.Info("authorized",
+			"username", botUsername,
+			"expected_username", username,
+		)
+	} else {
+		logger.Info("authorized",
+			"username", botUsername,
+		)
+	}
+}
+
+// slogLogger is the subset of *slog.Logger used by main (tests pass a concrete *slog.Logger).
+type slogLogger interface {
+	Info(msg string, args ...any)
+	Error(msg string, args ...any)
+}
+
+type commandRegistrar interface {
+	Request(tgbotapi.Chattable) (*tgbotapi.APIResponse, error)
+}
+
+func registerBotCommands(reg commandRegistrar, logger slogLogger) {
+	if _, err := reg.Request(setMyCommandsConfig()); err != nil {
+		logger.Error("failed to register bot commands", "err", err)
+	}
+}
+
+func tokenFromEnv() string {
+	return strings.TrimSpace(os.Getenv("TOKEN"))
+}
+
+func longPollTimeoutSeconds() int {
+	return 60
+}
+
+func setMyCommandsConfig() tgbotapi.SetMyCommandsConfig {
+	return tgbotapi.NewSetMyCommands(
+		tgbotapi.BotCommand{Command: "start", Description: "🚀 Старт"},
+		tgbotapi.BotCommand{Command: "menu", Description: "📋 Демо-меню"},
+		tgbotapi.BotCommand{Command: "help", Description: "📋 Меню команд"},
+		tgbotapi.BotCommand{Command: "about", Description: "ℹ️ О боте"},
+		tgbotapi.BotCommand{Command: "usecases", Description: "💼 Примеры задач"},
+		tgbotapi.BotCommand{Command: "features", Description: "🧩 Возможности"},
+		tgbotapi.BotCommand{Command: "ping", Description: "✅ Проверка статуса"},
+		tgbotapi.BotCommand{Command: "echo", Description: "🗣️ Повторить текст"},
+	)
+}
+
 func main() {
 	logger := logging.NewFromEnv()
 
-	buildDate := BuildDate
-	if t, err := time.Parse(time.RFC3339, BuildDate); err == nil {
-		if loc, locErr := time.LoadLocation("Europe/Moscow"); locErr == nil {
-			t = t.In(loc)
-		}
-		buildDate = t.Format("02/01/2006 15:04:05")
-	} else if t, err := time.Parse(time.RFC3339Nano, BuildDate); err == nil {
-		if loc, locErr := time.LoadLocation("Europe/Moscow"); locErr == nil {
-			t = t.In(loc)
-		}
-		buildDate = t.Format("02/01/2006 15:04:05")
-	}
+	buildDate := formatBuildDate(BuildDate)
 
 	logger.Info("starting",
 		"version", Version,
@@ -42,7 +115,7 @@ func main() {
 		"build_date", buildDate,
 	)
 
-	token := os.Getenv("TOKEN")
+	token := tokenFromEnv()
 	if token == "" {
 		log.Fatal("env var TOKEN is not set (see .env)")
 	}
@@ -54,33 +127,12 @@ func main() {
 		log.Fatalf("failed to create bot: %v", err)
 	}
 
-	if username != "" {
-		logger.Info("authorized",
-			"username", tg.Self.UserName,
-			"expected_username", username,
-		)
-	} else {
-		logger.Info("authorized",
-			"username", tg.Self.UserName,
-		)
-	}
+	logAuthorized(logger, username, tg.Self.UserName)
 
-	commands := tgbotapi.NewSetMyCommands(
-		tgbotapi.BotCommand{Command: "start", Description: "🚀 Старт"},
-		tgbotapi.BotCommand{Command: "menu", Description: "📋 Демо-меню"},
-		tgbotapi.BotCommand{Command: "help", Description: "📋 Меню команд"},
-		tgbotapi.BotCommand{Command: "about", Description: "ℹ️ О боте"},
-		tgbotapi.BotCommand{Command: "usecases", Description: "💼 Примеры задач"},
-		tgbotapi.BotCommand{Command: "features", Description: "🧩 Возможности"},
-		tgbotapi.BotCommand{Command: "ping", Description: "✅ Проверка статуса"},
-		tgbotapi.BotCommand{Command: "echo", Description: "🗣️ Повторить текст"},
-	)
-	if _, err := tg.Request(commands); err != nil {
-		logger.Error("failed to register bot commands", "err", err)
-	}
+	registerBotCommands(tg, logger)
 
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = longPollTimeoutSeconds()
 
 	updates := tg.GetUpdatesChan(u)
 
@@ -97,14 +149,7 @@ func main() {
 	for {
 		select {
 		case update := <-updates:
-			if update.CallbackQuery != nil {
-				h.HandleCallback(update.CallbackQuery)
-				continue
-			}
-			if update.Message == nil {
-				continue
-			}
-			h.HandleMessage(update.Message)
+			applyTelegramUpdate(&h, update)
 
 		case sig := <-stop:
 			logger.Info("received signal, shutting down", "signal", sig.String())

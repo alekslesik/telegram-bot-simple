@@ -23,3 +23,7 @@ vendor/
 .env
 *.env.local
 
+# Покрытие тестов (go test -coverprofile / -html)
+coverage.out
+coverage.html
+
