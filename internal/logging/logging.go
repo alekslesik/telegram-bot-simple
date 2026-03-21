@@ -1,11 +1,17 @@
 package logging
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
 	"time"
 )
+
+// loadTZEuropeMoscow is swappable in tests (LoadLocation error → time.Local).
+var loadTZEuropeMoscow = func() (*time.Location, error) {
+	return time.LoadLocation("Europe/Moscow")
+}
 
 // NewFromEnv creates a slog.Logger configured via environment variables.
 //
@@ -14,12 +20,17 @@ import (
 //
 // Time format is always: 02/01/2006 15:04:05 (Europe/Moscow)
 func NewFromEnv() *slog.Logger {
+	return NewWithWriter(os.Stdout)
+}
+
+// NewWithWriter is like NewFromEnv but writes to w (tests use a buffer).
+func NewWithWriter(w io.Writer) *slog.Logger {
 	level := slog.LevelInfo
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("LOG_LEVEL")), "debug") {
 		level = slog.LevelDebug
 	}
 
-	loc, err := time.LoadLocation("Europe/Moscow")
+	loc, err := loadTZEuropeMoscow()
 	if err != nil {
 		loc = time.Local
 	}
@@ -40,7 +51,7 @@ func NewFromEnv() *slog.Logger {
 
 	format := strings.ToLower(strings.TrimSpace(os.Getenv("LOG_FORMAT")))
 	if format == "json" {
-		return slog.New(slog.NewJSONHandler(os.Stdout, opts))
+		return slog.New(slog.NewJSONHandler(w, opts))
 	}
-	return slog.New(slog.NewTextHandler(os.Stdout, opts))
+	return slog.New(slog.NewTextHandler(w, opts))
 }
