@@ -4,6 +4,8 @@ GO_FILES := ./...
 DOCKER_IMAGE := $(APP_NAME)
 ENV_FILE := .env
 VERSION ?=
+# Match go.mod / toolchain so linters are not built with an older Go (breaks staticcheck on new stdlib).
+GOTOOLCHAIN_LOCAL := $(shell go env GOVERSION 2>/dev/null)
 
 .DEFAULT_GOAL := help
 
@@ -21,7 +23,7 @@ help:
 	@echo "  imports       - Organize imports with goimports"
 	@echo "  lint          - Run all linters (fmt, vet, staticcheck, golangci-lint)"
 	@echo "  vet           - Run go vet"
-	@echo "  staticcheck   - Run staticcheck (if installed)"
+	@echo "  staticcheck   - Run staticcheck (go run, same Go as module)"
 	@echo "  golangci-lint - Run golangci-lint (if installed)"
 	@echo "  test          - Run go tests"
 	@echo "  vuln          - Run govulncheck (via go run)"
@@ -58,12 +60,12 @@ fmt-check:
 		exit 1; \
 	fi
 
-## Organize imports (requires golang.org/x/tools/cmd/goimports)
+## Organize imports (goimports in PATH, or go run)
 imports:
 	@if command -v goimports >/dev/null 2>&1; then \
 		goimports -w .; \
 	else \
-		echo "goimports not found, install with: go install golang.org/x/tools/cmd/goimports@latest"; \
+		GOTOOLCHAIN=$(GOTOOLCHAIN_LOCAL) go run golang.org/x/tools/cmd/goimports@latest -w .; \
 	fi
 
 ## Build Go binary
@@ -85,14 +87,10 @@ lint: fmt vet staticcheck golangci-lint
 vet:
 	go vet $(GO_FILES)
 
-## Staticcheck (requires honnef.co/go/tools/cmd/staticcheck)
+## Staticcheck (go run so binary matches module Go version)
 staticcheck:
-	@if command -v staticcheck >/dev/null 2>&1; then \
-		echo "staticcheck $(GO_FILES)"; \
-		staticcheck $(GO_FILES); \
-	else \
-		echo "staticcheck not found, install with: go install honnef.co/go/tools/cmd/staticcheck@latest"; \
-	fi
+	@echo "staticcheck $(GO_FILES)"
+	@GOTOOLCHAIN=$(GOTOOLCHAIN_LOCAL) go run honnef.co/go/tools/cmd/staticcheck@latest $(GO_FILES)
 
 ## GolangCI-Lint (requires golangci-lint installed)
 golangci-lint:
@@ -110,10 +108,10 @@ golangci-lint:
 test:
 	go test $(GO_FILES)
 
-## Vulnerability check (requires govulncheck)
+## Vulnerability check (govulncheck via go run, same Go as module)
 vuln:
 	@echo "govulncheck ./..."
-	@go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	@GOTOOLCHAIN=$(GOTOOLCHAIN_LOCAL) go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 ## Build Docker image
 docker-build:
