@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -54,6 +56,89 @@ func applyTelegramUpdate(h *bot.Handlers, u tgbotapi.Update) {
 	h.HandleMessage(u.Message)
 }
 
+func updateKind(u tgbotapi.Update) string {
+	switch {
+	case u.CallbackQuery != nil:
+		return "callback_query"
+	case u.Message != nil && u.Message.IsCommand():
+		return "command_message"
+	case u.Message != nil:
+		return "message"
+	default:
+		return "other"
+	}
+}
+
+func probeTelegramAPI(tg *tgbotapi.BotAPI, logger slogLogger, reason string) {
+	me, err := tg.GetMe()
+	if err != nil {
+		logger.Error("telegram api probe failed", "reason", reason, "err", err)
+		return
+	}
+	logger.Info("telegram api probe ok", "reason", reason, "bot_id", me.ID, "username", me.UserName)
+}
+
+func telegramAPIAddr() string {
+	return "api.telegram.org:443"
+}
+
+func startupRetryDelay(attempt int) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+	return time.Duration(attempt) * 3 * time.Second
+}
+
+func probeTelegramNetwork(logger slogLogger, reason string) {
+	host, _, err := net.SplitHostPort(telegramAPIAddr())
+	if err != nil {
+		logger.Error("invalid telegram api addr", "addr", telegramAPIAddr(), "err", err)
+		return
+	}
+	ips, lookupErr := net.LookupHost(host)
+	if lookupErr != nil {
+		logger.Error("telegram dns probe failed", "reason", reason, "host", host, "err", lookupErr)
+		return
+	}
+	conn, dialErr := net.DialTimeout("tcp", telegramAPIAddr(), 5*time.Second)
+	if dialErr != nil {
+		logger.Error("telegram tcp probe failed",
+			"reason", reason,
+			"addr", telegramAPIAddr(),
+			"resolved_ips", strings.Join(ips, ","),
+			"err", dialErr,
+		)
+		return
+	}
+	_ = conn.Close()
+	logger.Info("telegram network probe ok",
+		"reason", reason,
+		"addr", telegramAPIAddr(),
+		"resolved_ips", strings.Join(ips, ","),
+	)
+}
+
+func createBotWithRetry(token string, logger slogLogger) (*tgbotapi.BotAPI, error) {
+	const maxAttempts = 5
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		probeTelegramNetwork(logger, fmt.Sprintf("create_bot_attempt_%d", attempt))
+		tg, err := telegram.New(token)
+		if err == nil {
+			if attempt > 1 {
+				logger.Info("telegram client created after retry", "attempt", attempt)
+			}
+			return tg, nil
+		}
+		lastErr = err
+		logger.Error("failed to create telegram client", "attempt", attempt, "max_attempts", maxAttempts, "err", err)
+		if attempt < maxAttempts {
+			time.Sleep(startupRetryDelay(attempt))
+		}
+	}
+	return nil, fmt.Errorf("failed to create bot after %d attempts: %w", maxAttempts, lastErr)
+}
+
 func logAuthorized(logger slogLogger, username, botUsername string) {
 	if username != "" {
 		logger.Info("authorized",
@@ -70,6 +155,7 @@ func logAuthorized(logger slogLogger, username, botUsername string) {
 // slogLogger is the subset of *slog.Logger used by main (tests pass a concrete *slog.Logger).
 type slogLogger interface {
 	Info(msg string, args ...any)
+	Debug(msg string, args ...any)
 	Error(msg string, args ...any)
 }
 
@@ -122,12 +208,13 @@ func main() {
 
 	username := os.Getenv("USERNAME")
 
-	tg, err := telegram.New(token)
+	tg, err := createBotWithRetry(token, logger)
 	if err != nil {
 		log.Fatalf("failed to create bot: %v", err)
 	}
 
 	logAuthorized(logger, username, tg.Self.UserName)
+	probeTelegramAPI(tg, logger, "startup")
 
 	registerBotCommands(tg, logger)
 
@@ -135,6 +222,8 @@ func main() {
 	u.Timeout = longPollTimeoutSeconds()
 
 	updates := tg.GetUpdatesChan(u)
+	probeTicker := time.NewTicker(2 * time.Minute)
+	defer probeTicker.Stop()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -148,8 +237,21 @@ func main() {
 
 	for {
 		select {
-		case update := <-updates:
+		case update, ok := <-updates:
+			if !ok {
+				logger.Error("updates channel closed; stopping bot loop")
+				return
+			}
+			logger.Debug("received telegram update",
+				"update_id", update.UpdateID,
+				"kind", updateKind(update),
+				"has_message", update.Message != nil,
+				"has_callback", update.CallbackQuery != nil,
+			)
 			applyTelegramUpdate(&h, update)
+
+		case <-probeTicker.C:
+			probeTelegramAPI(tg, logger, "periodic")
 
 		case sig := <-stop:
 			logger.Info("received signal, shutting down", "signal", sig.String())

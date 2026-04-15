@@ -115,6 +115,55 @@ func TestApplyTelegramUpdate_empty(t *testing.T) {
 	}
 }
 
+func TestUpdateKind(t *testing.T) {
+	commandText := "/start"
+	tests := []struct {
+		name string
+		u    tgbotapi.Update
+		want string
+	}{
+		{
+			name: "callback",
+			u: tgbotapi.Update{
+				CallbackQuery: &tgbotapi.CallbackQuery{ID: "cb"},
+			},
+			want: "callback_query",
+		},
+		{
+			name: "command message",
+			u: tgbotapi.Update{
+				Message: &tgbotapi.Message{
+					Text: commandText,
+					Entities: []tgbotapi.MessageEntity{
+						{Type: "bot_command", Offset: 0, Length: len(commandText)},
+					},
+				},
+			},
+			want: "command_message",
+		},
+		{
+			name: "plain message",
+			u: tgbotapi.Update{
+				Message: &tgbotapi.Message{Text: "hello"},
+			},
+			want: "message",
+		},
+		{
+			name: "other",
+			u:    tgbotapi.Update{},
+			want: "other",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := updateKind(tt.u); got != tt.want {
+				t.Fatalf("updateKind() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLogAuthorized_withExpectedUsername(t *testing.T) {
 	var buf bytes.Buffer
 	logAuthorized(logging.NewWithWriter(&buf), "want", "got")
@@ -165,5 +214,28 @@ func TestTokenFromEnv(t *testing.T) {
 func TestLongPollTimeoutSeconds(t *testing.T) {
 	if longPollTimeoutSeconds() != 60 {
 		t.Fatal("unexpected long poll timeout")
+	}
+}
+
+func TestStartupRetryDelay(t *testing.T) {
+	tests := []struct {
+		attempt int
+		want    time.Duration
+	}{
+		{attempt: 0, want: 3 * time.Second},
+		{attempt: 1, want: 3 * time.Second},
+		{attempt: 2, want: 6 * time.Second},
+		{attempt: 5, want: 15 * time.Second},
+	}
+	for _, tt := range tests {
+		if got := startupRetryDelay(tt.attempt); got != tt.want {
+			t.Fatalf("startupRetryDelay(%d)=%s, want %s", tt.attempt, got, tt.want)
+		}
+	}
+}
+
+func TestTelegramAPIAddr(t *testing.T) {
+	if got, want := telegramAPIAddr(), "api.telegram.org:443"; got != want {
+		t.Fatalf("telegramAPIAddr()=%q, want %q", got, want)
 	}
 }
