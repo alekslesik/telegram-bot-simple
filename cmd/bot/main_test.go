@@ -216,3 +216,26 @@ func TestLongPollTimeoutSeconds(t *testing.T) {
 		t.Fatal("unexpected long poll timeout")
 	}
 }
+
+func TestStartupRetryDelay(t *testing.T) {
+	tests := []struct {
+		attempt int
+		want    time.Duration
+	}{
+		{attempt: 0, want: 3 * time.Second},
+		{attempt: 1, want: 3 * time.Second},
+		{attempt: 2, want: 6 * time.Second},
+		{attempt: 5, want: 15 * time.Second},
+	}
+	for _, tt := range tests {
+		if got := startupRetryDelay(tt.attempt); got != tt.want {
+			t.Fatalf("startupRetryDelay(%d)=%s, want %s", tt.attempt, got, tt.want)
+		}
+	}
+}
+
+func TestTelegramAPIAddr(t *testing.T) {
+	if got, want := telegramAPIAddr(), "api.telegram.org:443"; got != want {
+		t.Fatalf("telegramAPIAddr()=%q, want %q", got, want)
+	}
+}

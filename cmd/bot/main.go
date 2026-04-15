@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -76,6 +78,67 @@ func probeTelegramAPI(tg *tgbotapi.BotAPI, logger slogLogger, reason string) {
 	logger.Info("telegram api probe ok", "reason", reason, "bot_id", me.ID, "username", me.UserName)
 }
 
+func telegramAPIAddr() string {
+	return "api.telegram.org:443"
+}
+
+func startupRetryDelay(attempt int) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+	return time.Duration(attempt) * 3 * time.Second
+}
+
+func probeTelegramNetwork(logger slogLogger, reason string) {
+	host, _, err := net.SplitHostPort(telegramAPIAddr())
+	if err != nil {
+		logger.Error("invalid telegram api addr", "addr", telegramAPIAddr(), "err", err)
+		return
+	}
+	ips, lookupErr := net.LookupHost(host)
+	if lookupErr != nil {
+		logger.Error("telegram dns probe failed", "reason", reason, "host", host, "err", lookupErr)
+		return
+	}
+	conn, dialErr := net.DialTimeout("tcp", telegramAPIAddr(), 5*time.Second)
+	if dialErr != nil {
+		logger.Error("telegram tcp probe failed",
+			"reason", reason,
+			"addr", telegramAPIAddr(),
+			"resolved_ips", strings.Join(ips, ","),
+			"err", dialErr,
+		)
+		return
+	}
+	_ = conn.Close()
+	logger.Info("telegram network probe ok",
+		"reason", reason,
+		"addr", telegramAPIAddr(),
+		"resolved_ips", strings.Join(ips, ","),
+	)
+}
+
+func createBotWithRetry(token string, logger slogLogger) (*tgbotapi.BotAPI, error) {
+	const maxAttempts = 5
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		probeTelegramNetwork(logger, fmt.Sprintf("create_bot_attempt_%d", attempt))
+		tg, err := telegram.New(token)
+		if err == nil {
+			if attempt > 1 {
+				logger.Info("telegram client created after retry", "attempt", attempt)
+			}
+			return tg, nil
+		}
+		lastErr = err
+		logger.Error("failed to create telegram client", "attempt", attempt, "max_attempts", maxAttempts, "err", err)
+		if attempt < maxAttempts {
+			time.Sleep(startupRetryDelay(attempt))
+		}
+	}
+	return nil, fmt.Errorf("failed to create bot after %d attempts: %w", maxAttempts, lastErr)
+}
+
 func logAuthorized(logger slogLogger, username, botUsername string) {
 	if username != "" {
 		logger.Info("authorized",
@@ -145,7 +208,7 @@ func main() {
 
 	username := os.Getenv("USERNAME")
 
-	tg, err := telegram.New(token)
+	tg, err := createBotWithRetry(token, logger)
 	if err != nil {
 		log.Fatalf("failed to create bot: %v", err)
 	}
