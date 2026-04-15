@@ -4,12 +4,16 @@ GO_FILES := ./...
 DOCKER_IMAGE := $(APP_NAME)
 ENV_FILE := .env
 VERSION ?=
+VPS_HOST ?= 82.38.71.26
+VPS_USER ?= root
+VPS_KEY ?= ~/.ssh/gh_actions_vps
+SSH_OPTS ?= -o StrictHostKeyChecking=accept-new
 # Match go.mod / toolchain so linters are not built with an older Go (breaks staticcheck on new stdlib).
 GOTOOLCHAIN_LOCAL := $(shell go env GOVERSION 2>/dev/null)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all run build deps fmt fmt-check imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs docker-compose-up docker-compose-down preprod vuln tag-create tag-push tag-release
+.PHONY: help all run build deps fmt fmt-check imports lint vet staticcheck golangci-lint test docker-build docker-run docker-stop docker-logs docker-compose-up docker-compose-down preprod vuln tag-create tag-push tag-release ssh-vps
 
 ## Show available make targets
 help:
@@ -33,6 +37,7 @@ help:
 	@echo "  docker-logs   - Show Docker logs"
 	@echo "  docker-compose-up   - Run bot via docker-compose (uses .env)"
 	@echo "  docker-compose-down - Stop bot started by docker-compose"
+	@echo "  ssh-vps       - SSH to VPS (override VPS_HOST/VPS_USER/VPS_KEY)"
 	@echo "  preprod       - Full pre-production checks (deps, fmt, imports, linters, tests, vuln, docker build)"
 	@echo "  tag-create    - Create annotated git tag (VERSION=vX.Y.Z)"
 	@echo "  tag-push      - Push git tag to origin (VERSION=vX.Y.Z)"
@@ -139,6 +144,10 @@ docker-compose-up:
 ## Stop bot started via docker-compose
 docker-compose-down:
 	docker compose down
+
+## SSH to VPS (override VPS_HOST/VPS_USER/VPS_KEY/SSH_OPTS)
+ssh-vps:
+	ssh -i "$(VPS_KEY)" $(SSH_OPTS) "$(VPS_USER)@$(VPS_HOST)"
 
 ## Full pre-production check: deps, fmt, imports, vet, staticcheck, golangci-lint, tests, vuln, docker build
 preprod: deps fmt imports vet staticcheck golangci-lint test vuln docker-build
