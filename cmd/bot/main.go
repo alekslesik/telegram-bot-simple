@@ -54,6 +54,28 @@ func applyTelegramUpdate(h *bot.Handlers, u tgbotapi.Update) {
 	h.HandleMessage(u.Message)
 }
 
+func updateKind(u tgbotapi.Update) string {
+	switch {
+	case u.CallbackQuery != nil:
+		return "callback_query"
+	case u.Message != nil && u.Message.IsCommand():
+		return "command_message"
+	case u.Message != nil:
+		return "message"
+	default:
+		return "other"
+	}
+}
+
+func probeTelegramAPI(tg *tgbotapi.BotAPI, logger slogLogger, reason string) {
+	me, err := tg.GetMe()
+	if err != nil {
+		logger.Error("telegram api probe failed", "reason", reason, "err", err)
+		return
+	}
+	logger.Info("telegram api probe ok", "reason", reason, "bot_id", me.ID, "username", me.UserName)
+}
+
 func logAuthorized(logger slogLogger, username, botUsername string) {
 	if username != "" {
 		logger.Info("authorized",
@@ -70,6 +92,7 @@ func logAuthorized(logger slogLogger, username, botUsername string) {
 // slogLogger is the subset of *slog.Logger used by main (tests pass a concrete *slog.Logger).
 type slogLogger interface {
 	Info(msg string, args ...any)
+	Debug(msg string, args ...any)
 	Error(msg string, args ...any)
 }
 
@@ -128,6 +151,7 @@ func main() {
 	}
 
 	logAuthorized(logger, username, tg.Self.UserName)
+	probeTelegramAPI(tg, logger, "startup")
 
 	registerBotCommands(tg, logger)
 
@@ -135,6 +159,8 @@ func main() {
 	u.Timeout = longPollTimeoutSeconds()
 
 	updates := tg.GetUpdatesChan(u)
+	probeTicker := time.NewTicker(2 * time.Minute)
+	defer probeTicker.Stop()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -148,8 +174,21 @@ func main() {
 
 	for {
 		select {
-		case update := <-updates:
+		case update, ok := <-updates:
+			if !ok {
+				logger.Error("updates channel closed; stopping bot loop")
+				return
+			}
+			logger.Debug("received telegram update",
+				"update_id", update.UpdateID,
+				"kind", updateKind(update),
+				"has_message", update.Message != nil,
+				"has_callback", update.CallbackQuery != nil,
+			)
 			applyTelegramUpdate(&h, update)
+
+		case <-probeTicker.C:
+			probeTelegramAPI(tg, logger, "periodic")
 
 		case sig := <-stop:
 			logger.Info("received signal, shutting down", "signal", sig.String())

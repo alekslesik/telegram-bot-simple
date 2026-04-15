@@ -115,6 +115,55 @@ func TestApplyTelegramUpdate_empty(t *testing.T) {
 	}
 }
 
+func TestUpdateKind(t *testing.T) {
+	commandText := "/start"
+	tests := []struct {
+		name string
+		u    tgbotapi.Update
+		want string
+	}{
+		{
+			name: "callback",
+			u: tgbotapi.Update{
+				CallbackQuery: &tgbotapi.CallbackQuery{ID: "cb"},
+			},
+			want: "callback_query",
+		},
+		{
+			name: "command message",
+			u: tgbotapi.Update{
+				Message: &tgbotapi.Message{
+					Text: commandText,
+					Entities: []tgbotapi.MessageEntity{
+						{Type: "bot_command", Offset: 0, Length: len(commandText)},
+					},
+				},
+			},
+			want: "command_message",
+		},
+		{
+			name: "plain message",
+			u: tgbotapi.Update{
+				Message: &tgbotapi.Message{Text: "hello"},
+			},
+			want: "message",
+		},
+		{
+			name: "other",
+			u:    tgbotapi.Update{},
+			want: "other",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := updateKind(tt.u); got != tt.want {
+				t.Fatalf("updateKind() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLogAuthorized_withExpectedUsername(t *testing.T) {
 	var buf bytes.Buffer
 	logAuthorized(logging.NewWithWriter(&buf), "want", "got")
